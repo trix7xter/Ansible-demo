@@ -1,0 +1,32 @@
+---
+route:
+  group_wait: 1s
+  group_interval: 2m
+  repeat_interval: 6h
+  receiver: "false"
+
+receivers:
+  - name: "false"
+
+# we can use email, for example
+#route:
+#  group_wait: 1s
+#  group_interval: 2m
+#  repeat_interval: 6h
+#  receiver: 'web.hook'
+#  routes:
+#    - receiver: send_email
+#      match:
+#        alertname: InstanceDown
+#
+#receivers:
+#- name: send_email
+#  email_configs:
+#  - to: admin@eail.ru
+#    send_resolved: true
+#    smarthost: smtp.yandex.ru:587
+#    auth_username: alert@mail.ru
+#    auth_password: *******
+#    require_tls: true
+
+

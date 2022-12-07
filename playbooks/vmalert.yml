@@ -1,0 +1,55 @@
+---
+- name: create volume for configuration
+  community.docker.docker_volume:
+    volume_name: vmalert-configuration
+    recreate: never
+    state: present
+  register: vmalert_configuration_volume
+
+- name: copy rules to volume
+  ansible.builtin.copy:
+    src: "configurations/rules/prometheus.rules"
+    dest: "{{ vmalert_configuration_volume.volume.Mountpoint }}/prometheus.rules"
+    owner: root
+    group: root
+    mode: "0777"
+
+- name: pull vmalert image
+  community.docker.docker_image:
+    name: docker.io/victoriametrics/vmalert
+    tag: latest
+    source: pull
+    state: present
+  register: vmalert_image
+
+- name: create vmalert container
+  community.docker.docker_container:
+    name: vmalert
+    image: docker.io/victoriametrics/vmalert:latest
+    detach: yes
+    recreate: yes
+    restart_policy: unless-stopped
+    published_ports: 8880:8880
+    volumes:
+      - vmalert-configuration:/etc/vmalert
+    networks:
+      - name: network_metrics
+    purge_networks: yes
+    command: --envflag.enable
+    env:
+      rule: "/etc/vmalert/prometheus.rules"
+      httpAuth_username: "{{ universe_login }}"
+      httpAuth_password: "{{ universe_password }}"
+      notifier_url: "http://{{ ansible_default_ipv4.address }}:9093"
+      notifier_basicAuth_username: "{{ universe_login }}"
+      notifier_basicAuth_password: "{{ universe_password }}"
+      datasource_url: "http://{{ ansible_default_ipv4.address }}:8428"
+      datasource_basicAuth_username: "{{ universe_login }}"
+      datasource_basicAuth_password: "{{ universe_password }}"
+      remoteRead_url: "http://{{ ansible_default_ipv4.address }}:8428"
+      remoteRead_basicAuth_username: "{{ universe_login }}"
+      remoteRead_basicAuth_password: "{{ universe_password }}"
+      remoteWrite_url: "http://{{ ansible_default_ipv4.address }}:8428"
+      remoteWrite_basicAuth_username: "{{ universe_login }}"
+      remoteWrite_basicAuth_password: "{{ universe_password }}"
+    state: started

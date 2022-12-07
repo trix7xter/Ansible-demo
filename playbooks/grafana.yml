@@ -1,0 +1,92 @@
+---
+- name: create grafana provisioning volume
+  community.docker.docker_volume:
+    volume_name: grafana-provisioning
+    state: present
+  register: grafana_provisioning_volume
+
+- name: create grafana data volume
+  community.docker.docker_volume:
+    volume_name: grafana-data
+    state: present
+  register: grafana_data_volume
+
+- name: create grafana logs volume
+  community.docker.docker_volume:
+    volume_name: grafana-logs
+    state: present
+
+- name: create owner for grafana_data_volume
+  file:
+    path: "{{ grafana_data_volume.volume.Mountpoint }}"
+    group: root
+    mode: "0777"
+    state: directory
+
+- name: create grafana directory in provisioning volume
+  file:
+    path: "{{ grafana_provisioning_volume.volume.Mountpoint }}/{{ item }}"
+    group: root
+    mode: "0777"
+    state: directory
+  loop:
+    - datasources
+    - access-control
+    - notifiers
+    - plugins
+    - dashboards
+
+- name:  create grafana directory in persistent volume
+  file:
+    path: "{{ grafana_data_volume.volume.Mountpoint }}/{{ item }}"
+    group: root
+    mode: "0777"
+    state: directory
+  loop:
+    - alerting
+    - csv
+    - dashboards
+    - plugins
+    - png
+
+- name: copy grafana files to provisioning volume with use template
+  template:
+    src: "grafana_files/{{ item }}"
+    dest: "{{ grafana_provisioning_volume.volume.Mountpoint }}/{{ item }}"
+    mode: "0777"
+  loop:
+    - datasources/victoria-metrics.yml
+    - dashboards/dashboard.yml
+
+- name: Copy grafana dashboard
+  copy:
+    src: "grafana_files/custom_dashboards/cadvisor-exporter_rev1.json"
+    dest: "{{ grafana_data_volume.volume.Mountpoint }}/dashboards/cadvisor-exporter_rev1.json"
+
+- name: pull grafana image
+  community.docker.docker_image:
+    name: docker.io/grafana/grafana-oss
+    tag: latest
+    source: pull
+    state: present
+  register: grafana_image
+
+- name: start grafana container
+  community.docker.docker_container:
+    name: grafana
+    image: docker.io/grafana/grafana-oss:latest
+    detach: yes
+    recreate: yes
+    restart_policy: unless-stopped
+    published_ports: 3000:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - grafana-logs:/var/log/grafana
+      - grafana-provisioning:/etc/grafana/provisioning
+    networks:
+      - name: network_metrics
+    purge_networks: yes
+    env:
+      GF_SECURITY_ADMIN_USER: "{{ universe_login }}"
+      GF_SECURITY_ADMIN_PASSWORD: "{{ universe_password }}"
+    state: started

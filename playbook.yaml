@@ -1,0 +1,34 @@
+- hosts: localhost
+  connection: local
+  become: yes
+  vars_files:
+    - vars/vars.yaml
+
+  tasks:
+    - name: Create new user
+      ansible.builtin.import_tasks: playbooks/ssh.yml
+
+    - name: install and update dependencies
+      ansible.builtin.import_tasks: playbooks/dependencies.yml
+
+    - name: install or update docker
+      ansible.builtin.import_tasks: playbooks/docker.yml
+
+    - name: download, settings and up container with cadvisor
+      ansible.builtin.import_tasks: playbooks/cadvisor.yml
+
+    - name: download, settings and up container with victoriametrics
+      ansible.builtin.import_tasks: playbooks/victoriametrics.yml
+
+    - name: download, settings and up container with grafana
+      ansible.builtin.import_tasks: playbooks/grafana.yml
+
+    - name: download, settings and up container with alertmanager
+      ansible.builtin.import_tasks: playbooks/alert_manager.yml
+
+    - name: download, settings and up container with vmalert
+      ansible.builtin.import_tasks: playbooks/vmalert.yml
+
+
+
+    

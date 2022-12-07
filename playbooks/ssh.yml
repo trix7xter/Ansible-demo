@@ -1,0 +1,13 @@
+---
+- name: Create a login user
+  user:
+    name: "{{ user_login }}"
+    password: password_hash('sha512', 'password')
+    groups:
+      - sudo
+    state: present
+    shell: /bin/bash
+    system: no
+    createhome: yes
+    home: /home/{{ user_login }}
+    generate_ssh_key: true

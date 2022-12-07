@@ -1,0 +1,49 @@
+---
+- name: Add repository for docker
+  become: True
+  shell:
+    cmd: 'curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
+
+- name: add official docker repository to source list
+  ansible.builtin.apt_repository:
+    repo:
+      "deb https://download.docker.com/linux/debian bullseye stable"
+    filename: docker
+    state: present
+
+- name: Index new repo into the cache
+  become: yes
+  apt:
+    name: "*"
+    state: latest
+    update_cache: yes
+    force_apt_get: yes
+
+- name: installing docker-ce, docker-ce-cli and containerd.io
+  apt:
+    name: "{{ packages }}"
+    state: fixed
+  vars:
+    packages:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+
+- name: add created user to docker group
+  user:
+    name: "{{ user_login }}"
+    groups:
+      - docker
+    append: yes
+
+- name: Add current user in docker group
+  become: True
+  shell:
+    cmd: "usermod -aG docker ${USER}"
+
+- name: create docker network
+  community.docker.docker_network:
+    name: network_metrics
+    scope: local
+    driver: bridge
+    state: present

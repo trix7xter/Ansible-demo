@@ -1,0 +1,13 @@
+---
+groups:
+- name: "cadvisor"
+  
+  rules:
+    - alert: ContainerCpuUsage
+      expr: (sum(rate(container_cpu_usage_seconds_total{name!=""}[1m])) BY (instance, name) * 100) > 5
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: Container CPU usage (instance {{ $labels.instance }})
+        description: "Container CPU usage is above 5%\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

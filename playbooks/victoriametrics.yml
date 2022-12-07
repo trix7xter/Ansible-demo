@@ -1,0 +1,46 @@
+---
+- name: create victoria_metrics_config volume
+  community.docker.docker_volume:
+    volume_name: victoria-metrics-config
+    state: present
+  register: victoria_metrics_config_volume
+
+- name: Copy prometheus config to config volume with ansible template
+  template:
+    src: "configurations/prometheus.yml"
+    dest: "{{ victoria_metrics_config_volume.volume.Mountpoint }}/prometheus.yml"
+    mode: "0777"
+
+- name: create victoria-metrics-data volume
+  community.docker.docker_volume:
+    volume_name: victoria-metrics-data
+    state: present
+
+- name: pull victoria-metrics container
+  community.docker.docker_image:
+    name: docker.io/victoriametrics/victoria-metrics
+    tag: latest
+    source: pull
+    state: present
+  register: victoriametrics_image
+
+- name: start victoria-metrics
+  community.docker.docker_container:
+    name: victoria-metrics
+    image: docker.io/victoriametrics/victoria-metrics:latest
+    detach: yes
+    recreate: yes
+    restart_policy: unless-stopped
+    published_ports: 8428:8428
+    volumes:
+      - victoria-metrics-config:/etc/prometheus:ro
+      - victoria-metrics-data:/victoria-metrics-data
+    networks:
+      - name: network_metrics
+    purge_networks: yes
+    command: --envflag.enable
+    env:
+      promscrape_config: "/etc/prometheus/prometheus.yml"
+      httpAuth_username: "{{ universe_login }}"
+      httpAuth_password: "{{ universe_password }}"
+    state: started

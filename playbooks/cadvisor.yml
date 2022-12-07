@@ -1,0 +1,51 @@
+---
+- name: cadvisor-configuration create volume
+  community.docker.docker_volume:
+    volume_name: cadvisor-configuration
+    recreate: never
+    state: present
+  register: cadvisor_configuration_volume
+
+- name: create htpasswd for cadvisor
+  community.general.htpasswd:
+    path: "{{ cadvisor_configuration_volume.volume.Mountpoint }}/auth.htpasswd"
+    name: "{{ universe_login }}"
+    password: "{{ universe_password }}"
+    owner: root
+    group: root
+    mode: "0666"
+    crypt_scheme: apr_md5_crypt
+    state: present
+
+- name: pull cadvisor image
+  community.docker.docker_image:
+    name: gcr.io/cadvisor/cadvisor
+    tag: latest
+    source: pull
+    state: present
+  register: cadvisor_image
+
+- name: create cadvisor container
+  community.docker.docker_container:
+    name: cadvisor
+    image: gcr.io/cadvisor/cadvisor:latest
+    detach: yes
+    recreate: yes
+    restart_policy: unless-stopped
+    published_ports: 8080:8080
+    volumes:
+      - cadvisor-configuration:/etc/cadvisor:ro
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/run:/var/run:ro
+    networks:
+      - name: network_metrics
+    purge_networks: yes
+    command:
+      - "-http_auth_file=/etc/cadvisor/auth.htpasswd"
+      - "-http_auth_realm=localhost"
+    command_handling: correct
+    privileged: yes
+    state: started

@@ -1,0 +1,46 @@
+---
+- name: create alertmanager-data volume
+  community.docker.docker_volume:
+    volume_name: alertmanager-data
+    state: present
+
+- name: create alertmanager-configuration volume
+  community.docker.docker_volume:
+    volume_name: alertmanager-configuration
+    state: present
+  register: alertmanager_configuration_volume
+
+- name: copy config alertmanager to volume
+  copy:
+    src: "configurations/alertmanager.yml"
+    dest: "{{ alertmanager_configuration_volume.volume.Mountpoint }}/alertmanager.yml"
+    owner: root
+    group: root
+    mode: "0777"
+
+- name: pull alertmanager image
+  community.docker.docker_image:
+    name: docker.io/ubuntu/prometheus-alertmanager
+    tag: latest
+    source: pull
+    state: present
+  register: alertmanager_image
+
+- name: alertmanager container is started
+  community.docker.docker_container:
+    name: alertmanager
+    image: docker.io/ubuntu/prometheus-alertmanager:latest
+    detach: yes
+    recreate: yes
+    restart_policy: unless-stopped
+    published_ports: 9093:9093
+    volumes:
+      - alertmanager-data:/alertmanager:rw
+      - alertmanager-conf:/etc/alertmanager:rw
+    networks:
+      - name: network_metrics
+    purge_networks: yes
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+
